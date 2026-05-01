@@ -84,6 +84,10 @@ type stream struct {
 	sessionID []byte
 	cert      *tls.Certificate
 	watchdogTimeout int
+	// DPI obfuscation parameters
+	jc   int  // Number of junk packets
+	jmin int  // Min junk packet size
+	jmax int  // Max junk packet size
 }
 
 const iPacketBuffMaxSize = 2048;
@@ -443,7 +447,7 @@ var turnMutex sync.Mutex
 // Global credentials function for mode selection (set by wgTurnProxyStart)
 var globalGetCreds getCredsFunc
 //export wgTurnProxyStart
-func wgTurnProxyStart(peerAddrC *C.char, vklinkC *C.char, modeC *C.char, n C.int, udp C.int, listenAddrC *C.char, turnIpC *C.char, turnPortC C.int, peerTypeC *C.char, streamsPerCredC C.int, watchdogTimeoutC C.int, networkHandleC C.longlong) int32 {
+func wgTurnProxyStart(peerAddrC *C.char, vklinkC *C.char, modeC *C.char, n C.int, udp C.int, listenAddrC *C.char, turnIpC *C.char, turnPortC C.int, peerTypeC *C.char, streamsPerCredC C.int, watchdogTimeoutC C.int, networkHandleC C.longlong, jcC C.int, jminC C.int, jmaxC C.int) int32 {
 	// Force initialization of resolver and HTTP client with current environment
 	wgNotifyNetworkChange()
 
@@ -545,7 +549,7 @@ func wgTurnProxyStart(peerAddrC *C.char, vklinkC *C.char, modeC *C.char, n C.int
 	ok := make(chan struct{}, int(n))
 	streams := make([]*stream, int(n))
 	for i := 0; i < int(n); i++ {
-		streams[i] = &stream{ctx: ctx, id: i, in: make(chan []byte, 512), out: lc, sessionID: sessionID, cert: &cert, watchdogTimeout: watchdogTimeout}
+		streams[i] = &stream{ctx: ctx, id: i, in: make(chan []byte, 512), out: lc, sessionID: sessionID, cert: &cert, watchdogTimeout: watchdogTimeout, jc: int(jcC), jmin: int(jminC), jmax: int(jmaxC)}
 		go streams[i].run(link, peer, udp != 0, ok, turnIp, turnPort, peerType)
 		time.Sleep(200 * time.Millisecond)
 	}
